@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 让页面在手机上更好看 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 让添加到主屏幕时像App一样全屏 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>我的DeepSeek</title>
+    <style>
+        /* 一些简单的样式，让界面好看一些 */
+        body { font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 16px; background: #f5f5f5; }
+        #chatbox { background: white; border-radius: 12px; padding: 16px; height: 70vh; overflow-y: auto; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .msg { margin-bottom: 12px; padding: 10px 14px; border-radius: 18px; max-width: 85%; word-wrap: break-word; }
+        .user { background: #007AFF; color: white; align-self: flex-end; margin-left: auto; }
+        .ai { background: #e5e5ea; color: black; align-self: flex-start; }
+        .input-area { display: flex; gap: 8px; }
+        #input { flex: 1; padding: 12px 16px; border: 1px solid #ddd; border-radius: 25px; outline: none; font-size: 16px; }
+        #sendBtn { background: #007AFF; color: white; border: none; border-radius: 25px; padding: 12px 20px; font-size: 16px; cursor: pointer; }
+        #sendBtn:disabled { opacity: 0.5; }
+        .loading { text-align: center; color: #888; padding: 10px; }
+    </style>
+</head>
+<body>
+
+    <h2>🤖 DeepSeek 聊天</h2>
+    <div id="chatbox">
+        <div class="msg ai">你好！我是DeepSeek，请问有什么可以帮你的？</div>
+    </div>
+    <div class="input-area">
+        <input type="text" id="input" placeholder="输入你的问题...">
+        <button id="sendBtn">发送</button>
+    </div>
+
+    <script>
+        // 🚨 重要：请把下面引号里的内容，换成你第一步复制的 API Key 🚨
+        const API_KEY = 'sk-509fdd8d01ef4b34805595a2f30a87c4'; // <--- 在这里粘贴你的Key
+        const API_URL = 'https://api.deepseek.com/chat/completions';
+
+        const chatbox = document.getElementById('chatbox');
+        const input = document.getElementById('input');
+        const sendBtn = document.getElementById('sendBtn');
+
+        // 把用户消息显示在聊天框里
+        function addMessage(text, sender) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `msg ${sender}`;
+            msgDiv.textContent = text;
+            chatbox.appendChild(msgDiv);
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        // 显示“正在输入...”的提示
+        function showLoading() {
+            const loadDiv = document.createElement('div');
+            loadDiv.className = 'loading';
+            loadDiv.id = 'loadingIndicator';
+            loadDiv.textContent = 'DeepSeek 正在思考...';
+            chatbox.appendChild(loadDiv);
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        function hideLoading() {
+            const loadDiv = document.getElementById('loadingIndicator');
+            if (loadDiv) loadDiv.remove();
+        }
+
+        // 核心：调用 DeepSeek API
+        async function askDeepSeek(userQuestion) {
+            // 1. 显示用户消息，并清空输入框
+            addMessage(userQuestion, 'user');
+            input.value = '';
+            sendBtn.disabled = true;
+            showLoading();
+
+            try {
+                // 2. 发送请求给 DeepSeek
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}` // 把钥匙放在请求头里
+                    },
+                    body: JSON.stringify({
+                        model: 'deepseek-chat', // 使用的模型[reference:7]
+                        messages: [
+                            { role: 'system', content: '你是一个乐于助人的助手。' },
+                            { role: 'user', content: userQuestion }
+                        ],
+                        stream: false // 非流式，一次返回完整结果[reference:8]
+                    })
+                });
+
+                // 3. 处理返回的结果
+                const data = await response.json();
+                hideLoading();
+
+                if (data.choices && data.choices.length > 0) {
+                    const aiReply = data.choices[0].message.content;
+                    addMessage(aiReply, 'ai');
+                } else {
+                    addMessage('抱歉，我没有理解你的问题。', 'ai');
+                    console.error('API返回错误:', data);
+                }
+            } catch (error) {
+                // 4. 如果出错了，显示错误信息
+                hideLoading();
+                addMessage('网络出了一点小问题，请稍后再试。', 'ai');
+                console.error('请求失败:', error);
+            } finally {
+                sendBtn.disabled = false;
+                input.focus();
+            }
+        }
+
+        // 监听“发送”按钮的点击事件
+        sendBtn.addEventListener('click', function() {
+            const text = input.value.trim();
+            if (text) {
+                askDeepSeek(text);
+            }
+        });
+
+        // 监听键盘上的“回车”键
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendBtn.click();
+            }
+        });
+
+        console.log('✅ 你的DeepSeek网页已准备好！请确保已替换API_KEY。');
+    </script>
+</body>
+</html>
